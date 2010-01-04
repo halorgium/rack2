@@ -58,6 +58,21 @@ module Rack2
     end
   end
 
+  class Synchronize
+    def initialize(app)
+      @app = app
+    end
+
+    def start(request)
+      status, headers, body = @app.call(request.env)
+      request.send_header(status, headers)
+      body.each do |chunk|
+        request.send_body(chunk)
+      end
+      request.finish
+    end
+  end
+
   class Handler
     def self.run(app)
       new(app).run

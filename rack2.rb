@@ -7,14 +7,13 @@ require 'thin_connection'
 
 module Rack2
   class Proxy
-    def initialize(request, middleware, env)
+    def initialize(request, middleware)
       @request    = request
-      @request.env.merge(env)
       @middleware = middleware
     end
 
-    def proxy(middleware, env = {})
-      Proxy.new(self, middleware, env)
+    def proxy(middleware)
+      Proxy.new(self, middleware)
     end
 
     def env
@@ -41,8 +40,8 @@ module Rack2
     end
     attr_reader :env
 
-    def proxy(middleware, env = {})
-      Proxy.new(self, middleware, env)
+    def proxy(middleware)
+      Proxy.new(self, middleware)
     end
 
     def send_header(status, headers)

@@ -34,13 +34,11 @@ class URLMap
       next unless path =~ match && rest = $1
       next unless rest.empty? || rest[0] == ?/
 
-      app.start(
-        request.proxy(
-          self,
-          'SCRIPT_NAME' => (script_name + location),
-          'PATH_INFO'   => rest
-        )
+      request.env.merge(
+        'SCRIPT_NAME' => (script_name + location),
+        'PATH_INFO'   => rest
       )
+      return app.start(request.proxy(self))
     end
 
     request.send_header(404, {"Content-Type" => "text/plain", "X-Cascade" => "pass"})

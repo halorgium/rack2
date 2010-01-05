@@ -1,3 +1,6 @@
+Thin::Connection.new(:foo)
+Thin.send(:remove_const, :Connection)
+
 require 'socket'
 
 module Thin
@@ -49,17 +52,6 @@ module Thin
     # Called when all data was received and the request
     # is ready to be processed.
     def process
-      if threaded?
-        raise
-        @request.threaded = true
-        EventMachine.defer(method(:pre_process), method(:post_process))
-      else
-        @request.threaded = false
-        pre_process
-      end
-    end
-
-    def pre_process
       # Add client info to the request env
       @request.remote_address = remote_address
       @rack2_request = Rack2::Request.new(self, @request.env)
@@ -67,7 +59,7 @@ module Thin
     rescue Exception
       handle_error
       terminate_request
-      nil # Signal to post_process that the request could not be processed
+      nil
     end
 
     def send_header(status, headers)
@@ -85,42 +77,6 @@ module Thin
 
     def finish
       terminate_request
-    end
-
-    def post_process(result)
-      return unless result
-      result = result.to_a
-      
-      # Status code -1 indicates that we're going to respond later (async).
-      return if result.first == AsyncResponse.first
-
-      # Set the Content-Length header if possible
-      set_content_length(result) if need_content_length?(result)
-      
-      @response.status, @response.headers, @response.body = *result
-
-      log "!! Rack application returned nil body. Probably you wanted it to be an empty string?" if @response.body.nil?
-
-      # Make the response persistent if requested by the client
-      @response.persistent! if @request.persistent?
-
-      # Send the response
-      @response.each do |chunk|
-        trace { chunk }
-        send_data chunk
-      end
-
-    rescue Exception
-      handle_error
-    ensure
-      # If the body is being deferred, then terminate afterward.
-      if @response.body.respond_to?(:callback) && @response.body.respond_to?(:errback)
-        @response.body.callback { terminate_request }
-        @response.body.errback  { terminate_request }
-      else
-        # Don't terminate the response if we're going async.
-        terminate_request unless result && result.first == AsyncResponse.first
-      end
     end
 
     # Logs catched exception and closes the connection.
